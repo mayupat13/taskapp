@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { Component,PureComponent } from 'react';
 import { View, 
   Text, 
   StyleSheet, 
@@ -16,9 +16,7 @@ import { View,
   ActivityIndicator
    } from 'react-native';
 
-   import Icon from 'react-native-vector-icons/FontAwesome';
-// import AsyncStorage from '@react-native-community/async-storage';
-
+import Icon from 'react-native-vector-icons/FontAwesome';
 import Video from 'react-native-video';
 import NetInfo from "@react-native-community/netinfo";
 
@@ -26,11 +24,7 @@ import NetInfo from "@react-native-community/netinfo";
 var { height, width } = Dimensions.get('window');
 
 
-
-
-
-
-class Each_Video extends React.Component {
+class Each_Video extends Component {
 
 
   constructor(props) {
@@ -39,7 +33,8 @@ class Each_Video extends React.Component {
         resizeMode: 'cover',
         currentVisibleIndex:0,
         button_text:'',
-        likecount:0
+        likecount:0,
+        checknext:true
       };
     }
 
@@ -51,7 +46,6 @@ video: Video;
 componentDidMount(){
 
   this.video.seek(0)
-
   this.setState({
     likecount: this.props.video_data.count_likes,
   });
@@ -68,21 +62,23 @@ componentDidMount(){
   }
 
   console.log(this.props.currentIndex,'currentIndex')
-  // console.log(this.props.currentVisibleIndex,'currentVisibleIndex')
 }
 
 
 
 
-UNSAFE_componentWillReceiveProps({currentVisibleIndex}) {
-
-  // alert(currentVisibleIndex)
-  this.setState({
-    currentVisibleIndex:currentVisibleIndex
-  })
+shouldComponentUpdate({currentVisibleIndex}, nextState) {
 
   console.log(this.state.currentVisibleIndex,'currentVisibleIndex')
-  // console.log(this.props.currentIndex,'currentIndex')
+
+  if (currentVisibleIndex != this.state.currentVisibleIndex) {
+
+    this.setState({
+      currentVisibleIndex:currentVisibleIndex
+    })
+
+  }
+  return currentVisibleIndex != this.state.currentVisibleIndex;
 }
 
 
@@ -178,22 +174,22 @@ render() {
             <View style={{flexDirection:'row',justifyContent:'space-around',marginTop:15,marginBottom:10}}>
               
                   <View>
-		                {this.state.button_text == 'liked' ? 
+                    {this.state.button_text == 'liked' ? 
                     <TouchableWithoutFeedback onPress={()=>{this.Dolike()}}>
                       <View style={{flexDirection:'row'}}>
                         <Icon lineHeight={10} name="heart" onPress={()=>{this.Dolike()}}  color='red' size={23} />
                         <Text style={{color:'red',fontSize:16,marginLeft:5}}>{this.state.likecount}</Text>
                       </View>
                     </TouchableWithoutFeedback>
-		                  :
-		                  <View>
-		                  	{this.props.video_data.count_likes == 0 ? 
+                      :
+                      <View>
+                        {this.props.video_data.count_likes == 0 ? 
                           <TouchableWithoutFeedback onPress={()=>{this.Dolike()}}>
                             <View style={{flexDirection:'row'}}>
                               <Icon lineHeight={10} name="heart" onPress={()=>{this.Dolike()}}  color='#999' size={23} />
                             </View>
                           </TouchableWithoutFeedback>
-				            	 :
+                       :
                           <TouchableWithoutFeedback onPress={()=>{this.Dolike()}}>
                             <View style={{flexDirection:'row'}}>
                               <Icon lineHeight={10} name="heart" onPress={()=>{this.Dolike()}}  color='#999' size={23} />
@@ -201,9 +197,9 @@ render() {
                             </View>
                           </TouchableWithoutFeedback>
                         }
-		                  </View>
-		                }
-	                </View>
+                      </View>
+                    }
+                  </View>
 
                   <TouchableWithoutFeedback onPress={()=>{this.onShare(this.props.video_data.detail_url)}}>
                     <View style={{flexDirection:'row'}}>
@@ -291,8 +287,11 @@ export default class Home extends Component {
         isLoading:true,
         currentVisibleIndex:0,
         swipevalue:0,
-        scrollnow:false
+        scrollnow:false,
+        last_id:null
       };
+
+      this.handler = this.handler.bind(this)
 
     }
 
@@ -354,13 +353,16 @@ fetchdata() {
               {
                 console.log(responseData,'data here');
 
+                let last_id = responseData[responseData.length - 1].id;
 
                 ctx.setState({
                   alldata:responseData,
                   alldata_size:responseData.length,
                   isLoading:false,
+                  last_id:last_id,
                 });
 
+                console.log(last_id,'first last id');
 
 
                 ctx.timeoutHandle = setTimeout(()=>{
@@ -371,8 +373,6 @@ fetchdata() {
               
                 }, 4000);
 
-                
-
               }
             })
           }
@@ -381,6 +381,67 @@ fetchdata() {
           console.log('Fetch Error', err);
       });
 };
+
+
+
+  handler() {
+    // this._onEndReached()
+    console.log('asas')
+  }
+
+
+
+
+async _onEndReached(){
+  console.log('in _onEndReached');
+  console.log(this.state.last_id);
+
+  // this.setState({
+  //   isLoading1: true,
+  // });
+
+
+if(this.state.last_id != null){
+ 
+       return fetch(`https://stumbler.com/apiv1/videos?max_id=${this.state.last_id}&limit=8`,
+      {
+         method: "GET",
+                headers: {
+                  'Accept': 'application/json',
+                  // 'Content-Type': 'application/json',
+                },
+      })
+      .then((response) => response.json())
+      .then((responseData) => {
+        if (!responseData){
+        Alert.alert('Try Again','Something went wrong')
+        this._onEndReached();
+      }else
+      {
+        console.log(responseData,'in end');
+        
+          let allpros = this.state.alldata.concat(responseData);
+          let last_id = responseData[responseData.length - 1].id;
+
+          console.log(last_id,'end last id');
+
+          this.setState({
+            alldata_size:allpros.length,
+            alldata: allpros,
+            last_id: responseData.results,
+          });
+
+      }
+      }).catch((error) => {
+         console.log(error);
+       })
+  }else{
+    console.log("videos done");
+  this.setState({
+      isLoading1: false,
+    });
+  }
+}
 
 
 
@@ -420,8 +481,8 @@ UpdateDirection(value){
   let old_swipe = Number(this.state.swipevalue);
   let new_swipe = Number(value);
 
-  console.log(old_swipe,'old value')
-  console.log(new_swipe,'new value')
+  // console.log(old_swipe,'old value')
+  // console.log(new_swipe,'new value')
 
 
 
@@ -450,12 +511,13 @@ UpdateDirection(value){
     });
   }
 
-
-
-
     console.log(this.state.currentVisibleIndex,'updated_index')
 
 }
+
+
+
+
 
 
 
@@ -468,7 +530,7 @@ render() {
        <View style={{flex:1,justifyContent: 'center'}}>
           <ActivityIndicator color="#555" />
         </View>
-  	);
+    );
 }
 
     return(
@@ -495,25 +557,21 @@ render() {
                 this.UpdateDirection(value)
                }}
 
-              // onScroll={(event) => {
-              //   this.setState({ end: 'notdone' })
-              //   let value = `${event.nativeEvent.contentOffset.x}`
-              //   console.log(value)
-              //   this.UpdateDirection(value)
-              // }}
               >
               
                 <FlatList
                   horizontal={true}
                   data={this.state.alldata}
                   keyExtractor={(item, index) => index.toString() + item.detail_url + item.id}
-
+                  onEndReached={this._onEndReached.bind(this)}
+                  onEndReachedThreshold={0}
                   renderItem={({ item, index }) => (
                   <Each_Video
                       navigation = {this.props.navigation}
                       video_data={item}
                       currentIndex={index}
                       currentVisibleIndex={this.state.currentVisibleIndex}
+                      handler = {this.handler}
                       />
                       )}
 
